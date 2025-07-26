@@ -1,0 +1,61 @@
+.fingerprint-content {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+.scan-area {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    flex-direction: column;
+    padding: 2rem;
+    border: 2px dashed #d1d5db;
+    border-radius: 8px;
+    text-align: center;
+}
+
+.scan-icon {
+    width: 6rem;
+    height: 6rem;
+    transition: color 0.3s ease-in-out;
+}
+
+.scan-message {
+    margin-top: 1rem;
+    font-weight: 600;
+    font-size: 1.125rem;
+    transition: color 0.3s ease-in-out;
+}
+
+.status-idle {
+    color: #9ca3af; /* gray-400 */
+}
+
+.status-scanning {
+    color: #f59e0b; /* amber-500 */
+    animation: pulse 1.5s infinite;
+}
+
+.status-success {
+    color: #22c55e; /* green-500 */
+}
+
+.status-error {
+    color: #ef4444; /* red-500 */
+}
+
+@keyframes pulse {
+    0% {
+        transform: scale(1);
+        opacity: 0.7;
+    }
+    50% {
+        transform: scale(1.1);
+        opacity: 1;
+    }
+    100% {
+        transform: scale(1);
+        opacity: 0.7;
+    }
+}
