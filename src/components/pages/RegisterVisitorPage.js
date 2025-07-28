@@ -16,6 +16,18 @@ const RegisterVisitorPage = () => {
         authorizedBy: '',
         visitorPhotoUrl: ''
     });
+    const handleOpenCamera = async () => {
+        setCapturedImage(null); // Limpia la imagen anterior
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+            if (videoRef.current) {
+                videoRef.current.srcObject = stream;
+            }
+            setIsCameraOpen(true);
+        } catch (err) {
+            setMessage({ type: 'error', text: 'No se pudo acceder a la cámara. Revisa los permisos.' });
+        }
+    };
     const [isLoading, setIsLoading] = useState(false);
     const [message, setMessage] = useState(null);
     const [qrCodeImage, setQrCodeImage] = useState(null);
@@ -84,7 +96,7 @@ const RegisterVisitorPage = () => {
                     <InputField
                         id="personVisited"
                         name="personVisited"
-                        label="Persona a Quien Visita"
+                        label="Motivo de la visita Visita"
                         type="text"
                         placeholder="Ej: Dra. Ana Torres"
                         icon={UserCheck}
@@ -106,7 +118,7 @@ const RegisterVisitorPage = () => {
                     <InputField
                         id="visitorPhotoUrl"
                         name="visitorPhotoUrl"
-                        label="URL de la Fotografía del Visitante"
+                        label="Fotografía del Visitante"
                         type="text"
                         placeholder="http://example.com/foto.jpg"
                         icon={Camera}

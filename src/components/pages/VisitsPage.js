@@ -1,9 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
     User, UserCheck, ShieldCheck, Camera, CalendarClock, Search, ClipboardList, CheckSquare
 } from 'lucide-react';
 
-// Este mock simulará las llamadas a tu backend
+// --- Mock Service ---
 const mockApiService = {
     visits: [
         { id: 1, visitorName: 'Ana Gomez', visitDatetime: '2025-08-01T14:00:00', personVisited: 'Dr. Carlos Santana', visitorPhotoUrl: 'http://example.com/photos/ana.jpg', status: 'PENDIENTE', authorizedBy: null, qrFolio: null, qrCodeBase64: null },
@@ -22,7 +22,7 @@ const mockApiService = {
     }, 400)),
 };
 
-// --- Componentes genéricos de UI que puedes mover a /components/commons ---
+// --- Componentes genéricos de UI ---
 const FormCard = ({ title, icon: Icon, children }) => (
     <div className="max-w-4xl mx-auto bg-white rounded-xl shadow-lg overflow-hidden"><div className="p-6 md:p-8">
         <div className="flex items-center space-x-3 mb-6"><Icon className="h-7 w-7 text-blue-500" /><h2 className="text-2xl font-bold text-gray-700">{title}</h2></div>
@@ -36,32 +36,128 @@ const InputField = ({ name, label, type = "text", icon: Icon, value, onChange, p
     </div></div>
 );
 
-// --- Sub-página de Registro ---
+// --- Sub-página de Registro (CORREGIDA CON useEffect) ---
 const RegisterVisitorSubPage = () => {
-    const [formData, setFormData] = useState({ visitorName: '', visitDatetime: '', personVisited: '', visitorPhotoUrl: '' });
+    const [formData, setFormData] = useState({ visitorName: '', visitDatetime: '', personVisited: '', visitorPhoto: '' });
     const [isLoading, setIsLoading] = useState(false);
     const [message, setMessage] = useState(null);
+    const [isCameraOpen, setIsCameraOpen] = useState(false);
+    const [capturedImage, setCapturedImage] = useState(null);
+    const videoRef = useRef(null);
+    const canvasRef = useRef(null);
+
     const handleChange = e => setFormData({ ...formData, [e.target.name]: e.target.value });
+
+    // useEffect para manejar el stream de la cámara
+    useEffect(() => {
+        let stream = null;
+        const startStream = async () => {
+            if (isCameraOpen) {
+                try {
+                    stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                    if (videoRef.current) {
+                        videoRef.current.srcObject = stream;
+                    }
+                } catch (err) {
+                    setMessage({ type: 'error', text: 'No se pudo acceder a la cámara. Revisa los permisos.' });
+                    setIsCameraOpen(false); // Cierra el modal si hay un error
+                }
+            }
+        };
+
+        startStream();
+
+        // Función de limpieza para apagar la cámara
+        return () => {
+            if (stream) {
+                stream.getTracks().forEach(track => track.stop());
+            }
+        };
+    }, [isCameraOpen]); // Se ejecuta cada vez que isCameraOpen cambia
+
+    const handleOpenCamera = () => {
+        setCapturedImage(null);
+        setMessage(null);
+        setIsCameraOpen(true);
+    };
+
+    const handleCloseCamera = () => setIsCameraOpen(false);
+
+    const handleTakePhoto = () => {
+        if (videoRef.current && canvasRef.current) {
+            const video = videoRef.current;
+            const canvas = canvasRef.current;
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
+            const imageDataUrl = canvas.toDataURL('image/png');
+            setCapturedImage(imageDataUrl);
+            setFormData({ ...formData, visitorPhoto: imageDataUrl });
+            handleCloseCamera();
+        }
+    };
+
     const handleSubmit = async (e) => {
-        e.preventDefault(); setIsLoading(true); setMessage(null);
+        e.preventDefault();
+        if (!capturedImage) {
+            setMessage({ type: 'error', text: 'Por favor, toma una fotografía del visitante.' });
+            return;
+        }
+        setIsLoading(true);
+        setMessage(null);
         try {
             await mockApiService.addVisitor(formData);
-            setMessage({ type: 'success', text: 'Solicitud de visita registrada. Pendiente de autorización.' });
-            setFormData({ visitorName: '', visitDatetime: '', personVisited: '', visitorPhotoUrl: '' });
-        } catch (err) { setMessage({ type: 'error', text: 'Error al registrar la solicitud.' }); }
-        finally { setIsLoading(false); setTimeout(() => setMessage(null), 5000); }
+            setMessage({ type: 'success', text: 'Visitante registrado con éxito.' });
+            setFormData({ visitorName: '', visitDatetime: '', personVisited: '', visitorPhoto: '' });
+            setCapturedImage(null);
+        } catch (err) {
+            setMessage({ type: 'error', text: err.message || 'Error al registrar la solicitud.' });
+        } finally {
+            setIsLoading(false);
+            setTimeout(() => setMessage(null), 5000);
+        }
     };
+
     return (
-        <FormCard title="Registrar una Visita" icon={ClipboardList}><form onSubmit={handleSubmit} className="space-y-4">
-            <InputField name="visitorName" label="Nombre Completo del Visitante" icon={User} value={formData.visitorName} onChange={handleChange} />
-            <InputField name="visitDatetime" label="Fecha y Hora de la Visita" type="datetime-local" icon={CalendarClock} value={formData.visitDatetime} onChange={handleChange} />
-            <InputField name="personVisited" label="Persona a Quien Visita" icon={UserCheck} value={formData.personVisited} onChange={handleChange} />
-            <InputField name="visitorPhotoUrl" label="URL de la Fotografía del Visitante" icon={Camera} value={formData.visitorPhotoUrl} onChange={handleChange} />
-            {message && <div className={`p-3 rounded-md text-white ${message.type === 'success' ? 'bg-green-500' : 'bg-red-500'}`}>{message.text}</div>}
-            <button type="submit" disabled={isLoading} className="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 disabled:bg-blue-300">
-                {isLoading ? 'Enviando Solicitud...' : 'Enviar Solicitud de Visita'}
-            </button>
-        </form></FormCard>
+        <>
+            <FormCard title="Registrar una Visita" icon={ClipboardList}>
+                <form onSubmit={handleSubmit} className="space-y-6">
+                    <InputField name="visitorName" label="Nombre Completo del Visitante" icon={User} value={formData.visitorName} onChange={handleChange} />
+                    <InputField name="visitDatetime" label="Fecha y Hora de la Visita" type="datetime-local" icon={CalendarClock} value={formData.visitDatetime} onChange={handleChange} />
+                    <InputField name="personVisited" label="Motivo de la Visita" icon={UserCheck} value={formData.personVisited} onChange={handleChange} />
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Fotografía del Visitante</label>
+                        {capturedImage ? (
+                            <div className="text-center">
+                                <img src={capturedImage} alt="Captura del visitante" className="mx-auto border-4 rounded-lg w-48 h-auto" />
+                                <button type="button" onClick={handleOpenCamera} className="mt-2 text-sm text-blue-600 hover:underline">Tomar Otra Foto</button>
+                            </div>
+                        ) : (
+                            <button type="button" onClick={handleOpenCamera} className="w-full flex items-center justify-center bg-gray-100 text-gray-700 py-3 px-4 rounded-md border-2 border-dashed hover:bg-gray-200">
+                                <Camera className="mr-2 h-5 w-5" /> Abrir Cámara y Tomar Foto
+                            </button>
+                        )}
+                        <canvas ref={canvasRef} className="hidden"></canvas>
+                    </div>
+                    {message && <div className={`p-3 rounded-md text-white ${message.type === 'success' ? 'bg-green-500' : 'bg-red-500'}`}>{message.text}</div>}
+                    <button type="submit" disabled={isLoading} className="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 disabled:bg-blue-300">
+                        {isLoading ? 'Registrando...' : 'Registrar Visitante'}
+                    </button>
+                </form>
+            </FormCard>
+            {isCameraOpen && (
+                <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50">
+                    <div className="bg-white p-4 rounded-lg shadow-xl text-center max-w-lg w-full mx-4">
+                        <h3 className="text-lg font-semibold mb-4">Apunta a la cara del visitante</h3>
+                        <video ref={videoRef} autoPlay playsInline muted className="w-full rounded-md border" />
+                        <div className="mt-4 flex justify-center space-x-4">
+                            <button type="button" onClick={handleTakePhoto} className="bg-blue-600 text-white py-2 px-6 rounded-md hover:bg-blue-700">Tomar Foto</button>
+                            <button type="button" onClick={handleCloseCamera} className="bg-gray-300 text-gray-800 py-2 px-6 rounded-md hover:bg-gray-400">Cancelar</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+        </>
     );
 };
 
