@@ -7,6 +7,7 @@ import RegisterPersonPage from 'components/pages/RegisterPersonPage';
 import RegisterFingerprintPage from 'components/pages/RegisterFingerprintPage';
 import ReportsPage from 'components/pages/ReportsPage';
 import RegisterVisitorPage from 'components/pages/RegisterVisitorPage';
+import VisitsPage from 'components/pages/VisitsPage';
 
 // Importa los estilos globales
 import 'assets/styles/App.css';
@@ -53,6 +54,8 @@ function App() {
                 return <ReportsPage />;
             case 'registerVisitor':
                 return <RegisterVisitorPage />;
+            case 'visitas':
+                return <VisitsPage />;
             default:
                 return <HomePage user={currentUser} />;
         }

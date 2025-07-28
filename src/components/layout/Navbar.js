@@ -23,8 +23,7 @@ const Navbar = ({ user, onNavigate, onLogout, activePage }) => {
                         key={item.id}
                         href="#"
                         onClick={(e) => { e.preventDefault(); onNavigate(item.id); }}
-                        className={`nav-item ${activePage === item.id ? 'active' : ''}`}
-                    >
+                        className={`nav-item ${activePage === item.id ? 'active' : ''}`}                    >
                         <item.icon className="nav-icon" />
                         <span>{item.label}</span>
                     </a>
