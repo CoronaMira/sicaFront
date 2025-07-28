@@ -3,18 +3,85 @@ import {
     User, UserCheck, ShieldCheck, Camera, CalendarClock, Search, ClipboardList, CheckSquare
 } from 'lucide-react';
 
-// --- Mock Service ---
-const mockApiService = {
+// --- Función para convertir Base64 a Blob ---
+// Es necesaria para poder enviar la imagen capturada como un archivo.
+const dataURLtoBlob = (dataurl) => {
+    const arr = dataurl.split(',');
+    const mime = arr[0].match(/:(.*?);/)[1];
+    const bstr = atob(arr[1]);
+    let n = bstr.length;
+    const u8arr = new Uint8Array(n);
+    while (n--) {
+        u8arr[n] = bstr.charCodeAt(n);
+    }
+    return new Blob([u8arr], { type: mime });
+}
+
+// --- Service para la API ---
+// Ahora 'addVisitor' realiza una llamada real al backend.
+const apiService = {
+    // --- FUNCIÓN REAL para crear una visita ---
+    addVisitor: async (visitorDataWithPhoto) => {
+        const url = 'http://192.168.1.245:8080/api/visits';
+        const apiKey = '686a8466-e810-4405-b173-8f24cdbd0126';
+
+        try {
+            // Separa la foto del resto de los datos del formulario
+            const { visitorPhoto, ...visitDetails } = visitorDataWithPhoto;
+
+            // Crea un objeto FormData para enviar datos y archivos
+            const formData = new FormData();
+
+            // Prepara el objeto JSON 'visit' y lo añade al FormData
+            // NOTA: Tu curl no envía 'authorizedBy' en el alta, así que lo omitimos aquí.
+            const visitJson = JSON.stringify({
+                visitorName: visitDetails.visitorName,
+                visitDatetime: visitDetails.visitDatetime,
+                personVisited: visitDetails.personVisited,
+                status: 'PENDING' // El estado inicial siempre es PENDIENTE
+            });
+            formData.append('visit', visitJson);
+
+            // Convierte la imagen Base64 a un Blob y la añade al FormData
+            if (visitorPhoto) {
+                const photoBlob = dataURLtoBlob(visitorPhoto);
+                // El backend espera un archivo, le damos un nombre por defecto
+                formData.append('photo', photoBlob, 'visitor-photo.png');
+            }
+
+            // Realiza la llamada fetch
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: {
+                    'X-API-KEY': apiKey,
+                    // NO establezcas 'Content-Type', el navegador lo hace automáticamente para multipart/form-data
+                },
+                body: formData,
+            });
+
+            if (!response.ok) {
+                const errorData = await response.text();
+                throw new Error(`Error del servidor: ${response.status} - ${errorData}`);
+            }
+
+            return await response.json();
+
+        } catch (error) {
+            console.error("Error al registrar la visita:", error);
+            throw error; // Propaga el error para que el componente lo maneje
+        }
+    },
+
+    // --- Mocks para las otras funcionalidades (se mantienen por ahora) ---
     visits: [
         { id: 1, visitorName: 'Ana Gomez', visitDatetime: '2025-08-01T14:00:00', personVisited: 'Dr. Carlos Santana', visitorPhotoUrl: 'http://example.com/photos/ana.jpg', status: 'PENDIENTE', authorizedBy: null, qrFolio: null, qrCodeBase64: null },
         { id: 2, visitorName: 'Luis Martinez', visitDatetime: '2025-08-02T11:30:00', personVisited: 'Lic. Maria Rodriguez', visitorPhotoUrl: 'http://example.com/photos/luis.jpg', status: 'AUTORIZADO', authorizedBy: 'Seguridad', qrFolio: 'f4b1e6a4-1a2b-3c4d-5e6f-7a8b9c0d1e2f', qrCodeBase64: 'iVBORw0KGgoAAAANSUhEUgAAAPoAAAD6AQAAAACgl2eQAAABcElEQVR4Xu2YUYrDMAxEDT5Aj5Sr+0g5gEGrN3JKk4V+d8BDutjy68cgS0q3xXeN9ow8tIHSBkobKG2g9DvAbCh3sx09Y6/B/uUGsB7zNeIkzmIFvQCssZDNjt9mCihImrBsC8R5sCFfpgDLzFTety7+CloBVDuZej/s3YCls1Eyir9lBGATa1n70fPK5eJkbQaQoHjXi5rYcb+TBkAWfpNTaj+PdPpp0wJQ4ZCdqb+Jxf9s/jwAszI1OpYPDUdHIDJeZNbO5EXFDSA1jEUGCqcjr9/NpgWwZuKg8Fcr4PECVO8jF12tmD7McHEDyA53jNpR1egrdkBUpj7n+92mB9BJGR7j8ugJVMmogzFfdGAFlKZyVB4fV84CKF9z9S768HwkywLA0Qj9JM+HVlDvKmaArLWs/cBvftSZPYEjj4KZgsf2eeWMAL26ayAuy24Ay6lWDHz9n8EMaAiA0wyNTh2ZAV+0gdIGShsobaDkAfwBvfpmGuBlAIMAAAAASUVORK5CYII=' },
     ],
     currentUser: { name: 'Admin General', role: 'Administrador' },
-    addVisitor: async (data) => new Promise(res => setTimeout(() => { const v = { ...data, id: Date.now(), status: 'PENDIENTE' }; mockApiService.visits.push(v); res(v); }, 500)),
-    getPendingVisits: async () => new Promise(res => setTimeout(() => res(mockApiService.visits.filter(v => v.status === 'PENDIENTE')), 300)),
-    authorizeVisit: async (id) => new Promise(res => setTimeout(() => { const v = mockApiService.visits.find(i => i.id === id); if(v) { v.status = 'AUTORIZADO'; v.authorizedBy = mockApiService.currentUser.name; v.qrFolio = crypto.randomUUID(); v.qrCodeBase64 = 'iVBORw0KGgoAAAANSUhEUgAAAPoAAAD6AQAAAACgl2eQAAABcElEQVR4Xu2YUYrDMAxEDT5Aj5Sr+0g5gEGrN3JKk4V+d8BDutjy68cgS0q3xXeN9ow8tIHSBkobKG2g9DvAbCh3sx09Y6/B/uUGsB7zNeIkzmIFvQCssZDNjt9mCihImrBsC8R5sCFfpgDLzFTety7+CloBVDuZej/s3YCls1Eyir9lBGATa1n70fPK5eJkbQaQoHjXi5rYcb+TBkAWfpNTaj+PdPpp0wJQ4ZCdqb+Jxf9s/jwAszI1OpYPDUdHIDJeZNbO5EXFDSA1jEUGCqcjr9/NpgWwZuKg8Fcr4PECVO8jF12tmD7McHEDyA53jNpR1egrdkBUpj7n+92mB9BJGR7j8ugJVMmogzFfdGAFlKZyVB4fV84CKF9z9S768HwkywLA0Qj9JM+HVlDvKmaArLWs/cBvftSZPYEjj4KZgsf2eeWMAL26ayAuy24Ay6lWDHz9n8EMaAiA0wyNTh2ZAV+0gdIGShsobaDkAfwBvfpmGuBlAIMAAAAASUVORK5CYII='; res(v); } }, 500)),
+    getPendingVisits: async () => new Promise(res => setTimeout(() => res(apiService.visits.filter(v => v.status === 'PENDIENTE')), 300)),
+    authorizeVisit: async (id) => new Promise(res => setTimeout(() => { const v = apiService.visits.find(i => i.id === id); if(v) { v.status = 'AUTORIZADO'; v.authorizedBy = apiService.currentUser.name; v.qrFolio = crypto.randomUUID(); v.qrCodeBase64 = 'iVBORw0KGgoAAAANSUhEUgAAAPoAAAD6AQAAAACgl2eQAAABcElEQVR4Xu2YUYrDMAxEDT5Aj5Sr+0g5gEGrN3JKk4V+d8BDutjy68cgS0q3xXeN9ow8tIHSBkobKG2g9DvAbCh3sx09Y6/B/uUGsB7zNeIkzmIFvQCssZDNjt9mCihImrBsC8R5sCFfpgDLzFTety7+CloBVDuZej/s3YCls1Eyir9lBGATa1n70fPK5eJkbQaQoHjXi5rYcb+TBkAWfpNTaj+PdPpp0wJQ4ZCdqb+Jxf9s/jwAszI1OpYPDUdHIDJeZNbO5EXFDSA1jEUGCqcjr9/NpgWwZuKg8Fcr4PECVO8jF12tmD7McHEDyA53jNpR1egrdkBUpj7n+92mB9BJGR7j8ugJVMmogzFfdGAFlKZyVB4fV84CKF9z9S768HwkywLA0Qj9JM+HVlDvKmaArLWs/cBvftSZPYEjj4KZgsf2eeWMAL26ayAuy24Ay6lWDHz9n8EMaAiA0wyNTh2ZAV+0gdIGShsobaDkAfwBvfpmGuBlAIMAAAAASUVORK5CYII='; res(v); } }, 500)),
     searchVisits: async ({ q, start, end }) => new Promise(res => setTimeout(() => {
-        let r = mockApiService.visits;
+        let r = apiService.visits;
         if(q) r = r.filter(v => v.visitorName.toLowerCase().includes(q.toLowerCase()) || v.qrFolio === q);
         if(start) r = r.filter(v => new Date(v.visitDatetime) >= new Date(start));
         if(end) r = r.filter(v => new Date(v.visitDatetime) <= new Date(end));
@@ -36,7 +103,7 @@ const InputField = ({ name, label, type = "text", icon: Icon, value, onChange, p
     </div></div>
 );
 
-// --- Sub-página de Registro (CORREGIDA CON useEffect) ---
+// --- Sub-página de Registro (con Fetch real) ---
 const RegisterVisitorSubPage = () => {
     const [formData, setFormData] = useState({ visitorName: '', visitDatetime: '', personVisited: '', visitorPhoto: '' });
     const [isLoading, setIsLoading] = useState(false);
@@ -48,7 +115,6 @@ const RegisterVisitorSubPage = () => {
 
     const handleChange = e => setFormData({ ...formData, [e.target.name]: e.target.value });
 
-    // useEffect para manejar el stream de la cámara
     useEffect(() => {
         let stream = null;
         const startStream = async () => {
@@ -60,20 +126,17 @@ const RegisterVisitorSubPage = () => {
                     }
                 } catch (err) {
                     setMessage({ type: 'error', text: 'No se pudo acceder a la cámara. Revisa los permisos.' });
-                    setIsCameraOpen(false); // Cierra el modal si hay un error
+                    setIsCameraOpen(false);
                 }
             }
         };
-
         startStream();
-
-        // Función de limpieza para apagar la cámara
         return () => {
             if (stream) {
                 stream.getTracks().forEach(track => track.stop());
             }
         };
-    }, [isCameraOpen]); // Se ejecuta cada vez que isCameraOpen cambia
+    }, [isCameraOpen]);
 
     const handleOpenCamera = () => {
         setCapturedImage(null);
@@ -106,8 +169,8 @@ const RegisterVisitorSubPage = () => {
         setIsLoading(true);
         setMessage(null);
         try {
-            await mockApiService.addVisitor(formData);
-            setMessage({ type: 'success', text: 'Visitante registrado con éxito.' });
+            await apiService.addVisitor(formData);
+            setMessage({ type: 'success', text: 'Visitante registrado con éxito. Pendiente de autorización.' });
             setFormData({ visitorName: '', visitDatetime: '', personVisited: '', visitorPhoto: '' });
             setCapturedImage(null);
         } catch (err) {
@@ -124,7 +187,7 @@ const RegisterVisitorSubPage = () => {
                 <form onSubmit={handleSubmit} className="space-y-6">
                     <InputField name="visitorName" label="Nombre Completo del Visitante" icon={User} value={formData.visitorName} onChange={handleChange} />
                     <InputField name="visitDatetime" label="Fecha y Hora de la Visita" type="datetime-local" icon={CalendarClock} value={formData.visitDatetime} onChange={handleChange} />
-                    <InputField name="personVisited" label="Motivo de la Visita" icon={UserCheck} value={formData.personVisited} onChange={handleChange} />
+                    <InputField name="personVisited" label="Persona a Quien Visita" icon={UserCheck} value={formData.personVisited} onChange={handleChange} />
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">Fotografía del Visitante</label>
                         {capturedImage ? (
@@ -167,10 +230,10 @@ const AuthorizationSubPage = () => {
     const [isLoading, setIsLoading] = useState(true);
     const fetchPending = () => {
         setIsLoading(true);
-        mockApiService.getPendingVisits().then(data => { setPendingVisits(data); setIsLoading(false); });
+        apiService.getPendingVisits().then(data => { setPendingVisits(data); setIsLoading(false); });
     }
     useEffect(fetchPending, []);
-    const handleAuthorize = async (visitId) => { await mockApiService.authorizeVisit(visitId); fetchPending(); }
+    const handleAuthorize = async (visitId) => { await apiService.authorizeVisit(visitId); fetchPending(); }
 
     if (isLoading) return <div className="text-center">Cargando...</div>;
     return (
@@ -193,7 +256,7 @@ const ConsultationSubPage = () => {
     const [isLoading, setIsLoading] = useState(false);
     const handleSearch = async (params = search) => {
         setIsLoading(true); setSelected(null);
-        const results = await mockApiService.searchVisits({q: params.query, start: params.startDate, end: params.endDate});
+        const results = await apiService.searchVisits({q: params.query, start: params.startDate, end: params.endDate});
         setVisits(results); setIsLoading(false);
     }
     useEffect(() => { handleSearch(); }, []);
