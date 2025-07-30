@@ -125,7 +125,7 @@ const RegisterPersonPage = () => {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'X-API-KEY': '3f628144-7c26-45dd-9b7d-62d5f0b1320a', // API Key añadida
+                    'X-API-KEY': '686a8466-e810-4405-b173-8f24cdbd0126', // API Key añadida
                 },
                 body: JSON.stringify(payload),
             });
