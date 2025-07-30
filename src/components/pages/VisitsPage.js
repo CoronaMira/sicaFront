@@ -4,7 +4,6 @@ import {
 } from 'lucide-react';
 
 // --- Función para convertir Base64 a Blob ---
-// Es necesaria para poder enviar la imagen capturada como un archivo.
 const dataURLtoBlob = (dataurl) => {
     const arr = dataurl.split(',');
     const mime = arr[0].match(/:(.*?);/)[1];
@@ -18,75 +17,89 @@ const dataURLtoBlob = (dataurl) => {
 }
 
 // --- Service para la API ---
-// Ahora 'addVisitor' realiza una llamada real al backend.
+// Todas las funciones ahora apuntan a la API real.
 const apiService = {
+    // --- Configuración Centralizada ---
+    baseUrl: 'http://localhost:8080/api',
+    apiKey: '686a8466-e810-4405-b173-8f24cdbd0126',
+
     // --- FUNCIÓN REAL para crear una visita ---
     addVisitor: async (visitorDataWithPhoto) => {
-        const url = 'http://192.168.1.245:8080/api/visits';
-        const apiKey = '686a8466-e810-4405-b173-8f24cdbd0126';
-
+        const url = `${apiService.baseUrl}/visits`;
         try {
-            // Separa la foto del resto de los datos del formulario
             const { visitorPhoto, ...visitDetails } = visitorDataWithPhoto;
-
-            // Crea un objeto FormData para enviar datos y archivos
             const formData = new FormData();
-
-            // Prepara el objeto JSON 'visit' y lo añade al FormData
-            // NOTA: Tu curl no envía 'authorizedBy' en el alta, así que lo omitimos aquí.
             const visitJson = JSON.stringify({
-                visitorName: visitDetails.visitorName,
-                visitDatetime: visitDetails.visitDatetime,
-                personVisited: visitDetails.personVisited,
-                status: 'PENDING' // El estado inicial siempre es PENDIENTE
+                ...visitDetails,
+                status: 'PENDIENTE'
             });
             formData.append('visit', visitJson);
-
-            // Convierte la imagen Base64 a un Blob y la añade al FormData
             if (visitorPhoto) {
-                const photoBlob = dataURLtoBlob(visitorPhoto);
-                // El backend espera un archivo, le damos un nombre por defecto
-                formData.append('photo', photoBlob, 'visitor-photo.png');
+                formData.append('photo', dataURLtoBlob(visitorPhoto), 'visitor-photo.png');
             }
-
-            // Realiza la llamada fetch
             const response = await fetch(url, {
                 method: 'POST',
-                headers: {
-                    'X-API-KEY': apiKey,
-                    // NO establezcas 'Content-Type', el navegador lo hace automáticamente para multipart/form-data
-                },
+                headers: { 'X-API-KEY': apiService.apiKey },
                 body: formData,
             });
-
-            if (!response.ok) {
-                const errorData = await response.text();
-                throw new Error(`Error del servidor: ${response.status} - ${errorData}`);
-            }
-
+            if (!response.ok) throw new Error(`Error del servidor: ${response.status}`);
             return await response.json();
-
         } catch (error) {
-            console.error("Error al registrar la visita:", error);
-            throw error; // Propaga el error para que el componente lo maneje
+            console.error("Error en addVisitor:", error);
+            throw error;
         }
     },
 
-    // --- Mocks para las otras funcionalidades (se mantienen por ahora) ---
-    visits: [
-        { id: 1, visitorName: 'Ana Gomez', visitDatetime: '2025-08-01T14:00:00', personVisited: 'Dr. Carlos Santana', visitorPhotoUrl: 'http://example.com/photos/ana.jpg', status: 'PENDIENTE', authorizedBy: null, qrFolio: null, qrCodeBase64: null },
-        { id: 2, visitorName: 'Luis Martinez', visitDatetime: '2025-08-02T11:30:00', personVisited: 'Lic. Maria Rodriguez', visitorPhotoUrl: 'http://example.com/photos/luis.jpg', status: 'AUTORIZADO', authorizedBy: 'Seguridad', qrFolio: 'f4b1e6a4-1a2b-3c4d-5e6f-7a8b9c0d1e2f', qrCodeBase64: 'iVBORw0KGgoAAAANSUhEUgAAAPoAAAD6AQAAAACgl2eQAAABcElEQVR4Xu2YUYrDMAxEDT5Aj5Sr+0g5gEGrN3JKk4V+d8BDutjy68cgS0q3xXeN9ow8tIHSBkobKG2g9DvAbCh3sx09Y6/B/uUGsB7zNeIkzmIFvQCssZDNjt9mCihImrBsC8R5sCFfpgDLzFTety7+CloBVDuZej/s3YCls1Eyir9lBGATa1n70fPK5eJkbQaQoHjXi5rYcb+TBkAWfpNTaj+PdPpp0wJQ4ZCdqb+Jxf9s/jwAszI1OpYPDUdHIDJeZNbO5EXFDSA1jEUGCqcjr9/NpgWwZuKg8Fcr4PECVO8jF12tmD7McHEDyA53jNpR1egrdkBUpj7n+92mB9BJGR7j8ugJVMmogzFfdGAFlKZyVB4fV84CKF9z9S768HwkywLA0Qj9JM+HVlDvKmaArLWs/cBvftSZPYEjj4KZgsf2eeWMAL26ayAuy24Ay6lWDHz9n8EMaAiA0wyNTh2ZAV+0gdIGShsobaDkAfwBvfpmGuBlAIMAAAAASUVORK5CYII=' },
-    ],
-    currentUser: { name: 'Admin General', role: 'Administrador' },
-    getPendingVisits: async () => new Promise(res => setTimeout(() => res(apiService.visits.filter(v => v.status === 'PENDIENTE')), 300)),
-    authorizeVisit: async (id) => new Promise(res => setTimeout(() => { const v = apiService.visits.find(i => i.id === id); if(v) { v.status = 'AUTORIZADO'; v.authorizedBy = apiService.currentUser.name; v.qrFolio = crypto.randomUUID(); v.qrCodeBase64 = 'iVBORw0KGgoAAAANSUhEUgAAAPoAAAD6AQAAAACgl2eQAAABcElEQVR4Xu2YUYrDMAxEDT5Aj5Sr+0g5gEGrN3JKk4V+d8BDutjy68cgS0q3xXeN9ow8tIHSBkobKG2g9DvAbCh3sx09Y6/B/uUGsB7zNeIkzmIFvQCssZDNjt9mCihImrBsC8R5sCFfpgDLzFTety7+CloBVDuZej/s3YCls1Eyir9lBGATa1n70fPK5eJkbQaQoHjXi5rYcb+TBkAWfpNTaj+PdPpp0wJQ4ZCdqb+Jxf9s/jwAszI1OpYPDUdHIDJeZNbO5EXFDSA1jEUGCqcjr9/NpgWwZuKg8Fcr4PECVO8jF12tmD7McHEDyA53jNpR1egrdkBUpj7n+92mB9BJGR7j8ugJVMmogzFfdGAFlKZyVB4fV84CKF9z9S768HwkywLA0Qj9JM+HVlDvKmaArLWs/cBvftSZPYEjj4KZgsf2eeWMAL26ayAuy24Ay6lWDHz9n8EMaAiA0wyNTh2ZAV+0gdIGShsobaDkAfwBvfpmGuBlAIMAAAAASUVORK5CYII='; res(v); } }, 500)),
-    searchVisits: async ({ q, start, end }) => new Promise(res => setTimeout(() => {
-        let r = apiService.visits;
-        if(q) r = r.filter(v => v.visitorName.toLowerCase().includes(q.toLowerCase()) || v.qrFolio === q);
-        if(start) r = r.filter(v => new Date(v.visitDatetime) >= new Date(start));
-        if(end) r = r.filter(v => new Date(v.visitDatetime) <= new Date(end));
-        res(r);
-    }, 400)),
+    // --- FUNCIÓN REAL para obtener visitas pendientes ---
+    getPendingVisits: async () => {
+        const url = `${apiService.baseUrl}/visits?status=PENDING`;
+        try {
+            const response = await fetch(url, {
+                headers: { 'X-API-KEY': apiService.apiKey }
+            });
+            if (!response.ok) throw new Error(`Error del servidor: ${response.status}`);
+            return await response.json();
+        } catch (error) {
+            console.error("Error en getPendingVisits:", error);
+            throw error;
+        }
+    },
+
+    // --- FUNCIÓN REAL para autorizar una visita ---
+    authorizeVisit: async (visitId) => {
+        // Asumiendo un endpoint PUT para autorizar, una práctica REST común.
+        const url = `${apiService.baseUrl}/visits/${visitId}/authorize`;
+        try {
+            const response = await fetch(url, {
+                method: 'PUT', // o 'PATCH'
+                headers: { 'X-API-KEY': apiService.apiKey }
+            });
+            if (!response.ok) throw new Error(`Error del servidor: ${response.status}`);
+            return await response.json();
+        } catch (error) {
+            console.error("Error en authorizeVisit:", error);
+            throw error;
+        }
+    },
+
+    // --- FUNCIÓN REAL para buscar visitas ---
+    searchVisits: async ({ q, start, end }) => {
+        const params = new URLSearchParams();
+        if (q) params.append('q', q);
+        if (start) params.append('startDate', start);
+        if (end) params.append('endDate', end);
+        const url = `${apiService.baseUrl}/visits?${params.toString()}`;
+        try {
+            const response = await fetch(url, {
+                headers: { 'X-API-KEY': apiService.apiKey }
+            });
+            if (!response.ok) throw new Error(`Error del servidor: ${response.status}`);
+            return await response.json();
+        } catch (error) {
+            console.error("Error en searchVisits:", error);
+            throw error;
+        }
+    },
 };
 
 // --- Componentes genéricos de UI ---
@@ -228,22 +241,46 @@ const RegisterVisitorSubPage = () => {
 const AuthorizationSubPage = () => {
     const [pendingVisits, setPendingVisits] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
-    const fetchPending = () => {
-        setIsLoading(true);
-        apiService.getPendingVisits().then(data => { setPendingVisits(data); setIsLoading(false); });
-    }
-    useEffect(fetchPending, []);
-    const handleAuthorize = async (visitId) => { await apiService.authorizeVisit(visitId); fetchPending(); }
+    const [error, setError] = useState(null);
 
-    if (isLoading) return <div className="text-center">Cargando...</div>;
+    const fetchPending = async () => {
+        setIsLoading(true);
+        setError(null);
+        try {
+            const data = await apiService.getPendingVisits();
+            setPendingVisits(data);
+        } catch (err) {
+            setError('No se pudieron cargar las visitas pendientes.');
+        } finally {
+            setIsLoading(false);
+        }
+    }
+    useEffect(() => { fetchPending(); }, []);
+
+    const handleAuthorize = async (visitId) => {
+        try {
+            await apiService.authorizeVisit(visitId);
+            fetchPending(); // Recarga la lista después de autorizar
+        } catch (err) {
+            alert('Error al autorizar la visita.');
+        }
+    }
+
+    if (isLoading) return <div className="text-center p-4">Cargando visitas pendientes...</div>;
+    if (error) return <div className="text-center p-4 text-red-500">{error}</div>
+
     return (
         <FormCard title="Autorizar Visitas Pendientes" icon={CheckSquare}><div className="space-y-4">
             {pendingVisits.length > 0 ? pendingVisits.map(visit => (
                 <div key={visit.id} className="p-4 border rounded-lg bg-gray-50 flex justify-between items-center">
-                    <div><p className="font-bold">{visit.visitorName}</p><p className="text-sm text-gray-600">Visita a: {visit.personVisited}</p><p className="text-sm text-gray-600">Fecha: {new Date(visit.visitDatetime).toLocaleString()}</p></div>
+                    <div>
+                        <p className="font-bold">{visit.visitorName}</p>
+                        <p className="text-sm text-gray-600">Visita a: {visit.personVisited}</p>
+                        <p className="text-sm text-gray-600">Fecha: {new Date(visit.visitDatetime).toLocaleString()}</p>
+                    </div>
                     <button onClick={() => handleAuthorize(visit.id)} className="bg-green-500 text-white px-3 py-1 rounded hover:bg-green-600">Autorizar</button>
                 </div>
-            )) : <p className="text-center text-gray-500">No hay visitas pendientes.</p>}
+            )) : <p className="text-center text-gray-500">No hay visitas pendientes de autorización.</p>}
         </div></FormCard>
     );
 };
@@ -254,12 +291,21 @@ const ConsultationSubPage = () => {
     const [search, setSearch] = useState({ query: '', startDate: '', endDate: '' });
     const [selected, setSelected] = useState(null);
     const [isLoading, setIsLoading] = useState(false);
+
     const handleSearch = async (params = search) => {
-        setIsLoading(true); setSelected(null);
-        const results = await apiService.searchVisits({q: params.query, start: params.startDate, end: params.endDate});
-        setVisits(results); setIsLoading(false);
+        setIsLoading(true);
+        setSelected(null);
+        try {
+            const results = await apiService.searchVisits({q: params.query, start: params.startDate, end: params.endDate});
+            setVisits(results);
+        } catch (err) {
+            alert('Error al buscar visitas');
+        } finally {
+            setIsLoading(false);
+        }
     }
     useEffect(() => { handleSearch(); }, []);
+
     const handleChange = e => setSearch({...search, [e.target.name]: e.target.value});
     const handleFormSubmit = e => { e.preventDefault(); handleSearch(); }
 
@@ -272,12 +318,12 @@ const ConsultationSubPage = () => {
                 <button type="submit" className="md:col-span-3 w-full bg-blue-600 text-white py-2 px-4 rounded-md">Buscar</button>
             </form>
             <div className="space-y-2">
-                {isLoading ? <p>Buscando...</p> : visits.length > 0 ? visits.map(v => (
+                {isLoading ? <p className="text-center">Buscando...</p> : visits.length > 0 ? visits.map(v => (
                     <div key={v.id} className="p-3 border rounded-lg cursor-pointer hover:bg-gray-100" onClick={() => setSelected(v)}>
                         <p className="font-bold">{v.visitorName} - <span className={`text-sm font-semibold ${v.status === 'AUTORIZADO' ? 'text-green-600' : 'text-orange-500'}`}>{v.status}</span></p>
                         <p className="text-sm text-gray-500">Fecha: {new Date(v.visitDatetime).toLocaleString()}</p>
                     </div>
-                )) : <p>No se encontraron visitas.</p>}
+                )) : <p className="text-center">No se encontraron visitas para los criterios de búsqueda.</p>}
             </div>
             {selected && <div className="mt-6 p-6 border-t">
                 <h3 className="text-xl font-semibold mb-4">Detalle de la Visita</h3>

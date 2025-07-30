@@ -45,7 +45,7 @@ export const apiService = {
 
     // --- Función Actualizada para Registrar Visitantes (Llamada Real a la API) ---
     addVisitor: async (visitorData) => {
-        const url = 'http://192.168.1.245:8080/api/visits';
+        const url = 'http://localhost:8080/api/visits';
         const apiKey = '686a8466-e810-4405-b173-8f24cdbd0126';
 
         console.log("Enviando datos a la API real:", visitorData);
