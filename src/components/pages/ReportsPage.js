@@ -12,7 +12,23 @@ const ReportsPage = () => {
     useEffect(() => {
         setLoading(true);
         apiService.getAccessLogs()
-            .then(data => setLogs(data.sort((a, b) => b.id - a.id)))
+            .then(apiData => {
+                // AJUSTE: Se añade la transformación de datos de la API.
+                // El componente ahora convierte los datos recibidos (ej. personId, recordTimestamp)
+                // al formato que la tabla necesita (ej. userName, date, time).
+                const transformedLogs = apiData.map(record => {
+                    const timestamp = new Date(record.recordTimestamp);
+                    return {
+                        id: record.id,
+                        userName: `Persona ID: ${record.personId}`,
+                        date: timestamp.toLocaleDateString('es-ES'),
+                        time: timestamp.toLocaleTimeString('es-ES'),
+                        accessPoint: record.deviceId,
+                        status: record.status === 'Concedido' ? 'Concedido' : 'Denegado',
+                    };
+                });
+                setLogs(transformedLogs.sort((a, b) => b.id - a.id));
+            })
             .finally(() => setLoading(false));
     }, []);
 

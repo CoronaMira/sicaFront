@@ -39,9 +39,6 @@ export const apiService = {
         const mockVisitors = [{ id: 201, name: 'CONGRESO-24-1', reason: 'Congreso de IA', validUntil: '2024-10-30' }];
         return new Promise(resolve => setTimeout(() => resolve(mockVisitors), 300));
     },
-    getAccessLogs: async () => {
-        return new Promise(resolve => setTimeout(() => resolve([...apiService.accessLogs]), 300));
-    },
 
     // --- Función Actualizada para Registrar Visitantes (Llamada Real a la API) ---
     addVisitor: async (visitorData) => {
@@ -70,6 +67,38 @@ export const apiService = {
         } catch (error) {
             console.error("Error al realizar la llamada fetch a addVisitor:", error);
             throw error;
+        }
+    },
+    getAccessLogs: async () => {
+        // URL del endpoint de la API. Se asume que sin un ID, devuelve todos los registros.
+        const apiUrl = 'http://localhost:8080/api/attendance-records';
+        // Tu API Key personal.
+        const apiKey = '686a8466-e810-4405-b173-8f24cdbd0126';
+
+        try {
+            const response = await fetch(apiUrl, {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-API-KEY': apiKey,
+                },
+            });
+
+            if (!response.ok) {
+                // Si la respuesta no es exitosa, lanzamos un error.
+                throw new Error(`Error en la API: ${response.statusText}`);
+            }
+
+            const data = await response.json();
+
+            // La API puede devolver un solo objeto si se usa un ID, o un array si no.
+            // Nos aseguramos de devolver siempre un array para que el map funcione.
+            return Array.isArray(data) ? data : [data];
+
+        } catch (error) {
+            console.error("No se pudieron obtener los registros de acceso:", error);
+            // Devolvemos un array vacío en caso de error para evitar que la aplicación se rompa.
+            return [];
         }
     },
 };
