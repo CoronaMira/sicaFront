@@ -13,11 +13,9 @@ const ReportsPage = () => {
         setLoading(true);
         apiService.getAccessLogs()
             .then(apiData => {
-                // AJUSTE: Se añade la transformación de datos de la API.
-                // El componente ahora convierte los datos recibidos (ej. personId, recordTimestamp)
-                // al formato que la tabla necesita (ej. userName, date, time).
                 const transformedLogs = apiData.map(record => {
                     const timestamp = new Date(record.recordTimestamp);
+                    const options = { timeZone: 'America/Mexico_City' };
                     return {
                         id: record.id,
                         userName: `Persona ID: ${record.personId}`,

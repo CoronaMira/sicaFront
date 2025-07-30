@@ -31,7 +31,7 @@ const RegisterFingerprintPage = () => {
                 const response = await fetch('http://localhost:8080/api/persons', {
                     headers: {
                         'Content-Type': 'application/json',
-                        'X-API-KEY': '3f628144-7c26-45dd-9b7d-62d5f0b1320a',
+                        'X-API-KEY': '686a8466-e810-4405-b173-8f24cdbd0126',
                     },
                 });
 
