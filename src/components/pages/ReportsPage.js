@@ -56,8 +56,38 @@ const ReportsPage = () => {
         setFilters(prev => ({ ...prev, [name]: value }));
     };
 
-    const handleJustifyAbsence = (record) => {
-        alert(`Lógica para justificar la falta del día ${record.date} para la persona con ID ${record.personId}.`);
+    const handleJustifyAbsence = async (record) => {
+        // 1. Confirmar con el usuario antes de proceder
+        if (!window.confirm(`¿Está seguro de que desea justificar la falta para ${record.personName} del día ${record.date}?`)) {
+            return;
+        }
+
+        setLoading(true);
+        try {
+            // 2. Construir el cuerpo de la petición con los datos del registro
+            const justificationData = {
+                personId: record.personId,
+                recordType: "JUSTIFIED_ABSENCE",
+                // Los siguientes campos son ejemplos basados en el cURL.
+                // Pueden ajustarse según los requerimientos del sistema.
+                deviceId: "Admin-Panel",
+                gate: "Justificado desde Reportes",
+                status: "Concedido"
+            };
+
+            // 3. Llamar al servicio de la API
+            await apiService.justifyAbsence(justificationData);
+            alert('Falta justificada exitosamente.');
+
+            // 4. Volver a generar el reporte para reflejar los cambios
+            await handleGenerateReport();
+
+        } catch (error) {
+            console.error("Error al justificar la falta:", error);
+            alert(`No se pudo justificar la falta: ${error.message}`);
+            setLoading(false); // Asegurarse de quitar el loading en caso de error
+        }
+        // Nota: setLoading(false) se maneja en el 'finally' de handleGenerateReport si tiene éxito
     };
 
     // --- Lógica Principal ---
