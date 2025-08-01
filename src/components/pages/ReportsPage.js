@@ -122,7 +122,7 @@ const ReportsPage = () => {
                 default:
                     apiData = await apiService.getAccessLogs();
                     reportColumns = [ { header: 'Usuario', key: 'userName' }, { header: 'Fecha', key: 'date' }, { header: 'Hora', key: 'time' }, { header: 'Punto de Acceso', key: 'accessPoint' }, { header: 'Estado', key: 'status' }, ];
-                    transformedData = apiData.map(record => ({ ...record, userName: peopleMap.get(record.personId) || `Persona ID: ${record.personId}`, date: new Date(record.recordTimestamp).toLocaleDateString('es-ES'), time: new Date(record.recordTimestamp).toLocaleTimeString('es-ES'), accessPoint: record.deviceId, status: record.status === 'Concedido' ? 'Concedido' : 'Denegado', })).sort((a, b) => b.id - a.id);
+                    transformedData = apiData.map(record => ({ ...record, userName: peopleMap.get(record.personId) || `Persona ID: ${record.personId}`, date: new Date(record.recordTimestamp).toLocaleDateString('es-ES'), time: new Date(record.recordTimestamp).toLocaleTimeString('es-ES'), accessPoint: record.deviceId, status: record.status === 'SUCCESS' ? 'Concedido' : 'Denegado', })).sort((a, b) => b.id - a.id);
                     break;
             }
             setColumns(reportColumns);
