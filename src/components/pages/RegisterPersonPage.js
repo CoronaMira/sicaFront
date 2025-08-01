@@ -77,7 +77,7 @@ const RegisterPersonPage = () => {
         employeeNumber: '',
         area: '',
         entryTime: '',
-        exitTime: '',
+        departureTime: '',
         shift: 'Matutino',
         email: '',
         phone: ''
@@ -176,7 +176,7 @@ const RegisterPersonPage = () => {
                 payload.area = formData.area;
                 payload.shift = formData.shift;
                 payload.entryTime = formData.entryTime;
-                payload.exitTime = formData.exitTime;
+                payload.departureTime = formData.departureTime;
             }
 
             const response = await fetch('http://localhost:8080/api/persons', {
@@ -291,7 +291,7 @@ const RegisterPersonPage = () => {
                                 </div>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
                                     <InputField id="entryTime" name="entryTime" label="Hora Entrada" type="time" icon={LogIn} value={formData.entryTime} onChange={handleChange} />
-                                    <InputField id="exitTime" name="exitTime" label="Hora Salida" type="time" icon={LogOut} value={formData.exitTime} onChange={handleChange} />
+                                    <InputField id="departureTime" name="departureTime" label="Hora Salida" type="time" icon={LogOut} value={formData.departureTime} onChange={handleChange} />
                                 </div>
                             </div>
                         )}
