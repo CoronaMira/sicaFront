@@ -101,4 +101,41 @@ export const apiService = {
             return [];
         }
     },
+    getAllPersons: () => {
+
+        const url = 'http://localhost:8080/api/persons';
+
+        return fetch(url, {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-API-KEY': '686a8466-e810-4405-b173-8f24cdbd0126',
+            },
+        })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Failed to fetch persons list');
+                }
+                return response.json();
+            });
+    },
+    getAbsences: ({ personId, startDate, endDate }) => {
+        const url = new URL(`http://localhost:8080/api/v1/incidents/absences/person/${personId}`);
+        url.searchParams.append('startDate', startDate);
+        url.searchParams.append('endDate', endDate);
+
+        return fetch(url.toString(), {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-API-KEY': '686a8466-e810-4405-b173-8f24cdbd0126',
+            },
+        })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Failed to fetch absences report');
+                }
+                return response.json();
+            });
+    },
 };
