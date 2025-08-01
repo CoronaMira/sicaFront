@@ -65,9 +65,21 @@ const ReportsPage = () => {
                     break;
 
                 case 'tardiness':
-                    reportColumns = [ { header: 'ID de Persona', key: 'personId' }, { header: 'Fecha', key: 'date' }, { header: 'Tiempo de Retardo', key: 'delayTime' }, ];
-                    transformedData = [];
-                    alert("Reporte de retardos aún no implementado.");
+                    if (!filters.personId || !filters.startDate || !filters.endDate) {
+                        alert("Por favor, seleccione una persona y un rango de fechas.");
+                        setLoading(false);
+                        return;
+                    }
+                    apiData = await apiService.getTardiness(filters);
+                    reportColumns = [
+                        { header: 'Persona', key: 'personName' },
+                        { header: 'Fecha y Hora del Retardo', key: 'arrivalTime' },
+                    ];
+                    transformedData = apiData.map(record => ({
+                        ...record,
+                        personName: peopleMap.get(record.personId) || `ID No Encontrado: ${record.personId}`,
+                        arrivalTime: new Date(record.arrivalTime).toLocaleString('es-ES', { dateStyle: 'long', timeStyle: 'medium' }),
+                    }));
                     break;
 
                 case 'access':

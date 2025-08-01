@@ -138,4 +138,24 @@ export const apiService = {
                 return response.json();
             });
     },
+
+    getTardiness: ({ personId, startDate, endDate }) => {
+        const url = new URL(`http://localhost:8080/api/v1/incidents/tardiness/person/${personId}`);
+        url.searchParams.append('startDate', startDate);
+        url.searchParams.append('endDate', endDate);
+
+        return fetch(url.toString(), {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-API-KEY': '686a8466-e810-4405-b173-8f24cdbd0126',
+            },
+        })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Failed to fetch tardiness report');
+                }
+                return response.json();
+            });
+    },
 };
