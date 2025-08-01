@@ -31,7 +31,7 @@ const apiService = {
             const formData = new FormData();
             const visitJson = JSON.stringify({
                 ...visitDetails,
-                status: 'PENDIENTE'
+                status: 'PENDING'
             });
             formData.append('visit', visitJson);
             if (visitorPhoto) {
@@ -200,7 +200,7 @@ const RegisterVisitorSubPage = () => {
                 <form onSubmit={handleSubmit} className="space-y-6">
                     <InputField name="visitorName" label="Nombre Completo del Visitante" icon={User} value={formData.visitorName} onChange={handleChange} />
                     <InputField name="visitDatetime" label="Fecha y Hora de la Visita" type="datetime-local" icon={CalendarClock} value={formData.visitDatetime} onChange={handleChange} />
-                    <InputField name="personVisited" label="Persona a Quien Visita" icon={UserCheck} value={formData.personVisited} onChange={handleChange} />
+                    <InputField name="personVisited" label="Motivo de visita" icon={UserCheck} value={formData.personVisited} onChange={handleChange} />
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">Fotografía del Visitante</label>
                         {capturedImage ? (
