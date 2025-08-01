@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import jsPDF from 'jspdf';
-import 'jspdf-autotable';
+// Las siguientes importaciones se eliminan porque cargaremos las librerías desde un CDN.
+// import jsPDF from 'jspdf';
+// import 'jspdf-autotable';
 import { apiService } from 'services/apiService';
 import { Download, Calendar, User, BarChart3, Edit } from 'lucide-react';
-import 'assets/styles/ReportsPage.css';
+// import 'assets/styles/ReportsPage.css';
 
 const ReportsPage = () => {
     // --- Estados del Componente ---
@@ -13,12 +14,40 @@ const ReportsPage = () => {
     const [people, setPeople] = useState([]);
     const [filters, setFilters] = useState({ personId: '', startDate: '', endDate: '' });
     const [loading, setLoading] = useState(false);
+    const [scriptsLoaded, setScriptsLoaded] = useState(false);
 
-    // --- Carga la lista de personas al montar el componente ---
+    // --- Carga de scripts y lista de personas ---
     useEffect(() => {
+        // Cargar scripts para PDF
+        const jspdfScript = document.createElement('script');
+        jspdfScript.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
+        jspdfScript.id = 'jspdf';
+        jspdfScript.async = true;
+
+        const autoTableScript = document.createElement('script');
+        autoTableScript.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js';
+        autoTableScript.id = 'jspdf-autotable';
+        autoTableScript.async = true;
+
+        jspdfScript.onload = () => {
+            document.head.appendChild(autoTableScript);
+        };
+
+        autoTableScript.onload = () => {
+            setScriptsLoaded(true);
+        };
+
+        document.head.appendChild(jspdfScript);
+
+        // Cargar lista de personas
         apiService.getAllPersons()
             .then(setPeople)
             .catch(error => console.error("Failed to fetch people list:", error));
+
+        return () => {
+            document.getElementById('jspdf')?.remove();
+            document.getElementById('jspdf-autotable')?.remove();
+        };
     }, []);
 
     // --- Manejadores de eventos ---
@@ -29,7 +58,6 @@ const ReportsPage = () => {
 
     const handleJustifyAbsence = (record) => {
         alert(`Lógica para justificar la falta del día ${record.date} para la persona con ID ${record.personId}.`);
-        // Aquí podrías abrir un modal, navegar a otra página o hacer una llamada a la API.
     };
 
     // --- Lógica Principal ---
@@ -41,6 +69,7 @@ const ReportsPage = () => {
             let apiData;
             let reportColumns = [];
             let transformedData = [];
+            const peopleMap = new Map(people.map(p => [p.id, `${p.firstName} ${p.lastName}`]));
 
             switch (reportType) {
                 case 'absences':
@@ -56,10 +85,10 @@ const ReportsPage = () => {
                         { header: 'Tipo de Evento', key: 'eventType' },
                         { header: 'Acciones', key: 'actions' },
                     ];
-                    const peopleMap = new Map(people.map(p => [p.id, `${p.firstName} ${p.lastName}`]));
-                    transformedData = apiData.map(record => ({
+                    transformedData = apiData.map((record, index) => ({
                         ...record,
-                        personName: peopleMap.get(record.personId) || `ID No Encontrado: ${record.personId}`,
+                        id: index, // Añadimos un id único para la key de React
+                        personName: peopleMap.get(parseInt(record.personId)) || `ID No Encontrado: ${record.personId}`,
                         eventType: record.eventType === 'ABSENCE' ? 'Falta' : 'Asistencia',
                     }));
                     break;
@@ -75,8 +104,9 @@ const ReportsPage = () => {
                         { header: 'Persona', key: 'personName' },
                         { header: 'Fecha y Hora del Retardo', key: 'arrivalTime' },
                     ];
-                    transformedData = apiData.map(record => ({
+                    transformedData = apiData.map((record, index) => ({
                         ...record,
+                        id: index, // Añadimos un id único para la key de React
                         personName: peopleMap.get(record.personId) || `ID No Encontrado: ${record.personId}`,
                         arrivalTime: new Date(record.arrivalTime).toLocaleString('es-ES', { dateStyle: 'long', timeStyle: 'medium' }),
                     }));
@@ -86,7 +116,7 @@ const ReportsPage = () => {
                 default:
                     apiData = await apiService.getAccessLogs();
                     reportColumns = [ { header: 'Usuario', key: 'userName' }, { header: 'Fecha', key: 'date' }, { header: 'Hora', key: 'time' }, { header: 'Punto de Acceso', key: 'accessPoint' }, { header: 'Estado', key: 'status' }, ];
-                    transformedData = apiData.map(record => ({ id: record.id, userName: `Persona ID: ${record.personId}`, date: new Date(record.recordTimestamp).toLocaleDateString('es-ES'), time: new Date(record.recordTimestamp).toLocaleTimeString('es-ES'), accessPoint: record.deviceId, status: record.status === 'Concedido' ? 'Concedido' : 'Denegado', })).sort((a, b) => b.id - a.id);
+                    transformedData = apiData.map(record => ({ ...record, userName: peopleMap.get(record.personId) || `Persona ID: ${record.personId}`, date: new Date(record.recordTimestamp).toLocaleDateString('es-ES'), time: new Date(record.recordTimestamp).toLocaleTimeString('es-ES'), accessPoint: record.deviceId, status: record.status === 'Concedido' ? 'Concedido' : 'Denegado', })).sort((a, b) => b.id - a.id);
                     break;
             }
             setColumns(reportColumns);
@@ -99,7 +129,11 @@ const ReportsPage = () => {
     };
 
     const generatePdf = () => {
-        const doc = new jsPDF();
+        if (!scriptsLoaded) {
+            alert("Las librerías para generar el PDF aún están cargando. Por favor, intente de nuevo en un momento.");
+            return;
+        }
+        const doc = new window.jspdf.jsPDF();
         const reportTitles = { access: 'Reporte de Entradas y Salidas', absences: 'Reporte de Asistencias y Faltas', tardiness: 'Reporte de Retardos', };
 
         doc.setFontSize(18);
@@ -135,11 +169,11 @@ const ReportsPage = () => {
     };
 
     return (
-        <div className="p-4 sm:p-6 lg:p-8">
+        <div className="p-4 sm:p-6 lg:p-8 bg-gray-100 min-h-screen">
             <div className="max-w-7xl mx-auto">
                 <div className="flex justify-between items-center mb-6">
                     <h1 className="text-3xl font-bold text-gray-800">Generador de Reportes</h1>
-                    <button onClick={generatePdf} className="flex items-center gap-2 bg-gray-700 text-white font-bold py-2 px-4 rounded-lg hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-gray-500 disabled:bg-gray-400 transition-all duration-300" disabled={loading || data.length === 0}>
+                    <button onClick={generatePdf} className="flex items-center gap-2 bg-gray-700 text-white font-bold py-2 px-4 rounded-lg hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-gray-500 disabled:bg-gray-400 transition-all duration-300" disabled={loading || data.length === 0 || !scriptsLoaded}>
                         <Download size={18} /> Descargar PDF
                     </button>
                 </div>
@@ -155,7 +189,6 @@ const ReportsPage = () => {
                             </select>
                         </div>
 
-                        {/* --- Esta es la sección que fue corregida --- */}
                         {(reportType === 'absences' || reportType === 'tardiness') && (
                             <>
                                 <div className="flex flex-col">
@@ -180,7 +213,7 @@ const ReportsPage = () => {
                             </>
                         )}
 
-                        <button onClick={handleGenerateReport} className="w-full bg-blue-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-4 focus:ring-blue-300 disabled:bg-gray-400 transition-all duration-300" disabled={loading}>
+                        <button onClick={handleGenerateReport} className="w-full bg-blue-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-4 focus:ring-blue-300 disabled:bg-gray-400 transition-all duration-300 lg:col-start-5" disabled={loading}>
                             {loading ? 'Generando...' : 'Generar Reporte'}
                         </button>
                     </div>
@@ -200,13 +233,13 @@ const ReportsPage = () => {
                             ) : data.length === 0 ? (
                                 <tr><td colSpan={columns.length || 1} className="p-4 text-center text-gray-500">No hay datos para mostrar. Genere un reporte.</td></tr>
                             ) : (
-                                data.map((row, index) => (
-                                    <tr key={row.id || index} className={`border-b border-gray-200 hover:bg-gray-100/50 
+                                data.map((row) => (
+                                    <tr key={row.id} className={`border-b border-gray-200 hover:bg-gray-100/50 
                                             ${row.eventType === 'Falta' ? 'bg-red-50' : ''} 
                                             ${row.eventType === 'Asistencia' ? 'bg-green-50' : ''}`}
                                     >
                                         {columns.map(col => (
-                                            <td key={col.key} className="p-4 whitespace-nowrap">
+                                            <td key={`${row.id}-${col.key}`} className="p-4 whitespace-nowrap">
                                                 {col.key === 'actions' ? (
                                                     row.eventType === 'Falta' && (
                                                         <button onClick={() => handleJustifyAbsence(row)} className="flex items-center gap-1 bg-yellow-500 text-white text-xs font-bold py-1 px-2 rounded-md hover:bg-yellow-600 transition-colors">
